@@ -2351,3 +2351,52 @@ func TestUserHomeDir(t *testing.T) {
 		t.Fatalf("dir %s is not directory; type = %v", dir, fi.Mode())
 	}
 }
+
+// Regression test for #32088
+func TestLogRotate(t *testing.T) {
+	tmpdir := newDir("TestLogRotate", t)
+	defer func(d string) {
+		if err := RemoveAll(d); err != nil {
+			t.Fatalf("RemoveAll failed: %v", err)
+		}
+	}(tmpdir)
+
+	f0, err := OpenFile(tmpdir+"/example.log", O_RDWR|O_CREATE, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f1, err := OpenFile(tmpdir+"/example.log.1", O_RDWR|O_CREATE, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Rename log file to random name before removal
+	// because Windows file system does not actually remove it
+	// before file handle(s) are closed.
+	err = Rename(tmpdir+"/example.log.1", tmpdir+"/example.log.1.aS78Dksd1dfjhf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Remove(tmpdir + "/example.log.1.aS78Dksd1dfjhf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Rename(tmpdir+"/example.log", tmpdir+"/example.log.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f2, err := OpenFile(tmpdir+"/example.log", O_RDWR|O_CREATE, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f0.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f1.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f2.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
